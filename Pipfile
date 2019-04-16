@@ -10,6 +10,7 @@ numpy = "*"
 scipy = "*"
 matplotlib = "*"
 jupyter = "*"
+librosa = "*"
 
 [requires]
 python_version = "3.6"
