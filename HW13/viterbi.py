@@ -45,3 +45,4 @@ for i in range(3):
         print('model_{} probability: {:.6e}'.format(j + 1, prob))
         print('viterbi max state sequence: {}'.format(states))
     print('\n')
+
