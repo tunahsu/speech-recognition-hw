@@ -14,62 +14,65 @@ f.close()
 probs = np.zeros((30, 3))
 
 for m in range(3):
+    # get training data
+    f = open('training/model_%s_training.txt' % (m + 1), 'r')
+    obs = list()
+    for line in f.readlines():
+        line = line.strip()
+        obs.append(line)
+    f.close()    
+
     # init model
     a = np.array([[.3, .3, .4], [.3, .3, .4], [.4, .4, .2]])
     b = np.array([[.4, .4, .2], [.3, .3, .4], [.3, .3, .4]])
     pi = np.array([.3, .3, .4])
     
     # training
-    for it in range(3):
-        for ns in range(100):
-            # open training data
-            f = open('training/model_%s_training.txt' % (m + 1),'r')
-            obs = list()
-            for line in f.readlines():
-                line = line.strip()
-                obs.append(line)
-            f.close()     
-
+    for it in range(10):
+        for ns in range(100): 
             ob = str2ndar(obs[ns])
             N = a.shape[0]
             T = len(ob)
+            alpha = forward(ob, a, b, pi); beta = backward(ob, a, b, pi)
+            xi = np.zeros((T - 1, N, N))
+            gammai = np.zeros((T, N))
+            gammaj = np.zeros((T, N))
+
+            # compute xi    
+            for t in range(T - 1):
+                de = sum([sum([alpha[t][j] * a[i][j] * b[j][ob[t + 1]] * beta[t + 1][j] for j in range(N)]) for i in range(N)])
+                for i in range(N):
+                    for j in range(N):
+                        nu = alpha[t][i] * a[i][j] * b[j][ob[t + 1]] * beta[t + 1][j]
+                        xi[t][i][j] = nu / de
+            
+            # compute gamma
+            for t in range(T - 1):
+                for n in range(N):
+                    gammai[t][n] = sum([xi[t][n][nn] for nn in range(N)])
+                    gammaj[t][n] = sum([xi[t][nn][n] for nn in range(N)])
 
             # update a
             for i in range(N):
+                de = sum([gammai[t][i] for t in range(T - 1)])
                 for j in range(N):
-                    nu = 0
-                    for t in range(T - 1):
-                        alpha = forward(ob, a, b, pi); beta = backward(ob, a, b, pi)
-                        nu += alpha[t][i] * b[j][ob[t + 1]] * beta[t + 1][j] / sum([alpha[t][n] * beta[t][n] for n in range(N)])
-                    de = 0
-                    for t in range(T - 1):
-                        for jj in range(N):
-                            alpha = forward(ob, a, b, pi); beta = backward(ob, a, b, pi)
-                            de += alpha[t][i] * b[jj][ob[t + 1]] * beta[t + 1][jj] / sum([alpha[t][n] * beta[t][n] for n in range(N)])
+                    nu = sum([xi[t][i][j] for t in range(T - 1)])
                     a[i][j] = nu / de
             print(a, '\n')
             
             # update b
-            for i in range(N):
-                for j in range(N):
-                    nu = 0
-                    for t in range(T):
-                        if j == ob[t]:
-                            alpha = forward(ob, a, b, pi); beta = backward(ob, a, b, pi)
-                            nu += alpha[t][j] * beta[t][j] / sum([alpha[t][n] * beta[t][n] for n in range(N)])
-                    de = 0
-                    for t in range(T):
-                        alpha = forward(ob, a, b, pi); beta = backward(ob, a, b, pi)
-                        de += alpha[t][j] * beta[t][j] / sum([alpha[t][n] * beta[t][n] for n in range(N)])
-                    b[i][j] = nu / de
+            for j in range(N):
+                de = sum([gammaj[t][j] for t in range(T)])
+                for k in range(N):
+                    nu = sum([gammaj[t][j] for t in range(T) if k == ob[t]])
+                    b[j][k] = nu / de
             print(b, '\n')
 
             # update pi
             for i in range(N):
-                lpha = forward(ob, a, b, pi); beta = backward(ob, a, b, pi)
-                pi[i] = alpha[0][i] * beta[0][i] / sum([alpha[0][n] * beta[0][n] for n in range(N)])
+                pi[i] = gammai[0][i]
             print(pi, '\n\n----------------------------------\n')
-    
+
     # output model
     fp = open("model_%s.txt" % (m + 1), "a")
     fp.seek(0)
